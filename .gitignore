@@ -146,4 +146,5 @@ cython_debug/
 /docker/
 /.pytest_cache/
 src/test_app.py
-/config.json
+/config-sample.json
+
