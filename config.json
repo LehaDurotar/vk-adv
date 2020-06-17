@@ -1,0 +1,14 @@
+{
+    "vk_api": {
+        "access_token": "",
+        "expires": "0",
+        "client_id": "",
+        "user_id": "",
+        "test_public_id": ""
+    },
+    "telegram": {
+        "api_token": "",
+        "api_id": "",
+        "api_hash": ""
+    }
+}
