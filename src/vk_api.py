@@ -83,15 +83,20 @@ class VkRequests(BaseVkQuery):
         """
         return await self._create_comment(owner_id, post_id, message)
 
-    async def get_list_posts_id(self, scope: str = 'feed', owner_id: int = None) -> List[int]:
+    async def get_list_posts_id(self, scope: str = 'feed', owner_id: int = None) -> Dict[int, List[int]]:
+        """
+        Возвращает id постов с опредленной стены или из новостной ленты текущего пользователя
+        :param scope: по-умолчанию сканируется новостная лента, wall -
+        :param owner_id:
+        :return: массив целых чисел
+        """
         if scope not in ['feed', 'wall']:
             raise errors.AppScopeError()
         elif scope == 'feed':
-            posts = await self.fetch_feed()["response"]["items"]
-            return [item["post_id"] for item in posts]
-        else:
-            posts = await self.fetch_wall(owner_id)["response"]["items"]
-            return [item["id"] for item in posts]
+            source = dict(await self.fetch_feed())['response']['items']
+            return {post["source_id"]: [post["post_id"]] for post in source}
+        # else:
+            # return [item["id"] for item in dict(await self.fetch_wall(owner_id))["response"]["items"]]
 
     async def fetch_wall(self, owner_id: int):
         return await self._fetch_wall(owner_id)
@@ -111,7 +116,7 @@ class PostWorker(VkRequests):
         """
         super(PostWorker, self).__init__(session, token, client_id)
 
-    async def update_feed(self, mode: int = 0, timeout=600, count_posts: int = 50) -> List[int]:
+    async def update_feed(self, mode: int = 0, timeout=600, count_posts: int = 50) -> Dict[int, List[int]]:
         return await self.get_list_posts_id(scope='feed')
 
     async def start_posting(self, owner_id: int, posts_id: List[int], message: str):

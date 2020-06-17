@@ -145,3 +145,4 @@ cython_debug/
 /admin_broadcast.session-journal
 /docker/
 /.pytest_cache/
+src/test_app.py
