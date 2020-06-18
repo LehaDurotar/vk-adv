@@ -25,7 +25,7 @@ class BaseVkQuery(object):
                 f'{self._base}/newsfeed.get?filters={kw["filters"]}&'
                 f'count={kw["count"]}&access_token={self._token}&v=5.52'
         ) as resp:
-            return await resp.json()
+            return dict(await resp.json())['response']
 
     async def _create_comment(self, *args):
         async with self._session.get(
@@ -42,7 +42,7 @@ class BaseVkQuery(object):
                 f'{self._base}/wall.get?owner_id={args[0]}&'
                 f'access_token={self._token}&v=5.52'
         ) as resp:
-            return await resp.json()
+            return dict(await resp.json())['response']
 
     async def _del_comment_by_id(self, *args):
         async with self._session.get(
@@ -56,7 +56,7 @@ class BaseVkQuery(object):
                 f'{self._base}/wall.getComments?owner_id={args[0]}&'
                 f'post_id={args[1]}&access_token={self._token}&v=5.52'
         ) as resp:
-            return await resp.json()
+            return dict(await resp.json())['response']
 
 
 class VkRequests(BaseVkQuery):
@@ -93,17 +93,17 @@ class VkRequests(BaseVkQuery):
         if scope not in ['feed', 'wall']:
             raise errors.AppScopeError()
         elif scope == 'feed':
-            source = dict(await self.fetch_feed())['response']['items']
-            return {post["source_id"]: [post["post_id"]] for post in source}
+            source = dict(await self.fetch_feed())['items']
+            return {post['source_id']: [post['post_id']] for post in source}
         # else:
-            # return [item["id"] for item in dict(await self.fetch_wall(owner_id))["response"]["items"]]
+            # return [item["id"] for item in dict(await self.fetch_wall(owner_id))["items"]
 
     async def fetch_wall(self, owner_id: int):
         return await self._fetch_wall(owner_id)
 
     async def find_comments_by_id(self, owner_id: int, post_id: int) -> List[int]:
         comments = await self._find_comments_by_id(owner_id, post_id)
-        return [row["id"] for row in comments["response"]["items"]]
+        return [row["id"] for row in comments["items"]]
 
 
 class PostWorker(VkRequests):
@@ -121,7 +121,7 @@ class PostWorker(VkRequests):
 
     async def start_posting(self, owner_id: int, posts_id: List[int], message: str):
         res = await asyncio.gather(
-            *[self.create_comment(owner_id, post, f"{message}") for post in posts_id]
+            *[self.create_comment(owner_id, post, message) for post in posts_id]
         )
         return res
 
@@ -131,5 +131,3 @@ class PostWorker(VkRequests):
         tasks = [asyncio.create_task((self._del_comment_by_id(comment)) for comment in comments)]
         res = await asyncio.wait(tasks, timeout=1)
         return res
-
-

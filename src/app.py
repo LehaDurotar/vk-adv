@@ -3,9 +3,9 @@ import logging
 from config_parser import Config
 from vk_api import PostWorker
 from telethon import Button, TelegramClient, events, errors, types
+from aiohttp import ClientSession
 
 import asyncio
-import aiohttp
 import tracemalloc
 import re
 
@@ -18,6 +18,7 @@ bot = TelegramClient('admin_broadcast', Config.tg_api_id, Config.tg_api_hash)
 
 cached_posts = {}
 # mode = 0
+message = ''
 service_is_working = False
 
 
@@ -27,7 +28,15 @@ async def start_handler(event: events.NewMessage.Event):
         [Button.text('Начать рассылку', resize=True)],
         [Button.text('Отписаться от всех групп', resize=True)]]
 
-    await event.respond('Выберете команду', buttons=markup)
+    await event.respond('Для создания комментария для автопостинга'
+                        ' введите /set текст', buttons=markup)
+
+
+@bot.on(events.NewMessage(pattern=re.compile('(?:/set )')))
+async def set_message_handler(event: events.NewMessage.Event):
+    global message
+    message = event.text.split('/')[1][3:]
+    await event.respond(f'Комментарий установлен:\n{message}')
 
 
 @bot.on(events.NewMessage(pattern=re.compile('(?:Начать |Отписаться )')))
@@ -52,11 +61,11 @@ async def user_setup_handler(event: events.NewMessage.Event):
     await event.respond(header, buttons=markup)
 
 
-if aiohttp:
+if ClientSession:
 
     async def start_fetching():
         while service_is_working:
-            async with aiohttp.ClientSession() as session:
+            async with ClientSession() as session:
                 worker = PostWorker(session, Config.token, Config.client_id)
                 cached_posts.clear()
                 cached_posts.update(await worker.update_feed())
@@ -64,8 +73,8 @@ if aiohttp:
                 await asyncio.sleep(600)
 
 
-    async def commenting(message, scope='feed', wall_id=None):
-        async with aiohttp.ClientSession() as session:
+    async def commenting(scope='feed', wall_id=None):
+        async with ClientSession() as session:
             worker = PostWorker(session, Config.token, Config.client_id)
             if scope:
                 tasks = [asyncio.create_task(worker.start_posting(key, val, message))
@@ -94,19 +103,24 @@ if aiohttp:
             await event.respond('Сервис остановлен')
 
         if event.data == b'start_commenting':
-            markup = [[Button.inline('Определенная группа', b'wall')],
+            markup = [[Button.inline('ID группы', b'wall')],
                       [Button.inline('Новостная лента', b'feed')]]
             await event.respond('Режим комментирования:', buttons=markup)
 
 
     @bot.on(events.CallbackQuery(data=re.compile(b'wall|feed')))
     async def service_execute_handler(event: events.CallbackQuery.Event):
-        service_poster_task = None
-        if event.data == b'wall':
-            loop.create_task(commenting(f'1', 'wall', Config.test_public_id))
+        # service_poster_task = None
+        if not message == '':
+            if event.data == b'wall':
+                loop.create_task(commenting(message, 'wall'))
+                await event.respond(f'Комментирую стену, текст комментария:\n{message}')
 
-        if event.data == b'feed':
-            loop.create_task(commenting(f'-1'))
+            if event.data == b'feed':
+                loop.create_task(commenting(message))
+                await event.respond(f'Комментирую новостную ленту, текст комментария:\n{message}')
+        else:
+            await event.respond('Список сообщений пуст')
 
 
 async def main():

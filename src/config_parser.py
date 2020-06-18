@@ -2,7 +2,7 @@ import json
 
 
 class Config:
-    with open('./config.json', 'r') as f:
+    with open('./config-sample.json', 'r') as f:
         config = json.load(f)
         token = config["vk_api"]["access_token"]
         client_id = int(config["vk_api"]["client_id"])
